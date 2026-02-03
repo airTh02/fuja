@@ -15,14 +15,15 @@ public class Fuja extends Extension {
 	 boolean jaEnviou = false;
 	 boolean precisaEnviar = false;
 	 Integer ultimoQuarto = null;
-	 int posicaoOrigemX = -1;
-	 int posicaoOrigemY = -1;
-	 int posicaoFinalX = -1;
-	 int posicaoFinalY = -1;
+	 Integer posicaoOrigemX = null;
+	 Integer posicaoOrigemY = null;
+	 Integer posicaoFinalX = null;
+	 Integer posicaoFinalY = null;
 	 boolean aguardandoCliqueInicial = false;
 	 boolean aguardandoCliqueFinal = false;
 	 boolean podeFalarPosInicial = false;
 	 boolean podeFalarPosFinal = false;
+	 private volatile boolean andandoAutomatico = false;
 	 int fase = 0;
 	
 
@@ -61,6 +62,28 @@ public class Fuja extends Extension {
 	        }  
 	});	
 	}
+
+	private void iniciarMovimentoAutomatico(int intervaloMs) {
+	    if (andandoAutomatico) return; 
+
+	    andandoAutomatico = true;
+
+	    new Thread(() -> {
+	        while (andandoAutomatico) {
+	            try {
+	                andarAtePosicaoDeDestino();
+	                Thread.sleep(intervaloMs); 
+	            } catch (InterruptedException e) {
+	                e.printStackTrace();
+	            }
+	        }
+	    }).start();
+	}
+
+	private void pararMovimentoAutomatico() {
+	    andandoAutomatico = false;
+	}
+
 	
 	private void setarPosicaoDeDestino() {
 		intercept(HMessage.Direction.TOSERVER, "Chat", hMessage -> {
@@ -71,6 +94,18 @@ public class Fuja extends Extension {
 		            aguardandoCliqueFinal = true;
 		            sendToClient(new HPacket("Chat", HMessage.Direction.TOCLIENT, -1, "Clique no Local de destino", 0, 1, 0, -1));
 		            podeFalarPosFinal = true;
+		        }  
+		});	
+		}
+	
+	private void digitarPraParar() {
+		intercept(HMessage.Direction.TOSERVER, "Chat", hMessage -> {
+			HPacket packet = hMessage.getPacket();
+			String setar = packet.readString();
+			 if(setar.equalsIgnoreCase(":p")) {
+		            hMessage.setBlocked(true);
+		            posicaoFinalX = null;
+		            posicaoFinalY = null;
 		        }  
 		});	
 		}
@@ -145,13 +180,8 @@ public class Fuja extends Extension {
 		        	sendToClient(new HPacket("Chat", HMessage.Direction.TOCLIENT, -1, "Pos Final capturada. " + posicaoFinalX + "  " + posicaoFinalY, 0, 1, 0, -1));
 		        }
 		        podeFalarPosFinal = false;
-		        new Thread(() -> {
-		            try {
-		                Thread.sleep(1000);
-		                andarAtePosicaoDeDestino();
-		            } catch (InterruptedException e) { }
-		        }).start();
-		    });
+		        iniciarMovimentoAutomatico(1000);
+		 });
 	}
 
 	private List<Integer> capturarQuantidadeDeEsferas() {
